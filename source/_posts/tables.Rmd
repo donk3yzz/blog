@@ -1,0 +1,252 @@
+---
+title: "Tables"
+author: "冯盛世"
+date: "2018年3月26日"
+output: 
+  html_document: 
+    highlight: pygments
+    theme: null
+---
+highlight = pygments
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+thm <- knitr::knit_theme$get("solarized-dark")
+knitr::knit_theme$set(thm)
+
+```
+
+
+
+好吧又蹭了多元统计一次热度..
+
+多元统计的实验报告是一份以Rmarkdown为基础，以latex数学公式为基础，以矩阵操作和矩阵计算为实现目标的文档，所以不免涉及到矩阵在文档中展示的问题；如果希望在文档中以latex数学公式展示矩阵，总不能寄希望于手动输入
+
+```{r}
+library(knitr)
+
+library(huxtable)
+```
+
+```{r}
+set.seed(0125)
+matrix_A <- matrix(data = rnorm(16, 2, 1), nrow = 4)
+```
+
+想象有一天你在写实践报告：
+
+“建立矩阵$\mathbf A_{4\times4}$如下：
+```{r}
+matrix_A
+```
+则矩阵$\mathbf A$...”
+
+这这这，是不是有点太丑了hhh
+
+那么R中有没有包能够直接把矩阵直接用latex公式输出的呢？
+
+## 使用`xtable`展示latex矩阵
+
+[`xtable`](http://xtable.r-forge.r-project.org/)可以将R对象转换为'xtable'对象，以便于将其打印为LaTex或HTML表格。可以在cran上直接安装。
+
+其中我们需要的函数为`xtable::xtableMatharray()`，可以将我们的$\mathbf A$转换为LaTex的array形式输出：
+
+```{r}
+library(xtable)
+mtb <- xtableMatharray(matrix_A, digits = 5)
+
+
+class(mtb)
+
+str(mtb)
+
+mtb
+```
+
+可以看到`mtb`是一个`"xtableMatharray""xtable"  "data.frame"`的类型，如果在Rstudio中用`view(mtb)`调用则会得到一个数据框，而如果直接请求`mtb`则会返回$\mathbf A$的LaTex array编码。
+
+然后我们调用`print()`
+
+```
+```r, results='asis'
+print(mtb)
+```
+```
+
+```{r,results='asis'}
+print(mtb)
+```
+就可以展示LaTex公式下的$\mathbf A$了。
+
+## 原理简述
+
+我在前一篇文章里简单说过Rmarkdown输出pdf文档时的工作原理，这里也类似，基于基于pandoc的`knitr`的文档输出模式，可以让我们在从Rmarkdown文档到html文件的转换过程中，同时使用R代码、markdown语法、html语法和html-mathjax支持下的LaTex数学符号。
+
+（我们将在后面关于`kable()`的章节中复习此原理）
+
+所以可以推测，在`xtableMatharray()`已经将$\mathbf A$的LaTex公式转换完成的情况下，欲将该公式在最终html文档中输出，有两种途径：
+
+* 将`xtablMatharray()`的结果复制粘贴在Rmarkdown文件中的某对$$$$中
+
+* 将在`xtablMatharray()`的输出结果与`knitr`的转换之间建立关联
+
+前者简单易懂，但是不符合我们可重复性报告的原则；后者也不难实现，只需要在代码块中调整参数`results = 'asis'`
+
+```r results='asis'
+
+
+
+
+## 其他tables们
+
+事实上在Rmarkdown中输出tables的需求并不只有LaTex矩阵一种，大部分用户的输出需求还是对于`data.frame`的需求，而输出文档也一些是涵盖了markdown, pdf, word, html种种。下面是对一些其他的tables输出函数的简单介绍。
+
+### xtable()
+
+`xtable::xtableMatharray()`是专门用来输出LaTex array制式的函数，而`xtable()`可以用于输出LaTex或html格式。
+
+```{r}
+xt_iris <- xtable(head(iris))
+
+print(xt_iris)
+print(xt_iris, type = 'html')
+```
+
+```{r,results='asis'}
+print(xt_iris)
+print(xt_iris, type = 'html')
+```
+
+可以看到，`xtable()`可以输出LaTex和html制式的表格，事实上`xtable()`中还有很多参数可以调整，以满足定制需求（排版函数一般皆是如此，下同）。
+
+### 代表了更先进生产力的`huxtable`
+
+[`huxtable`](https://hughjonesd.github.io/huxtable/)是一个用于创建html和LaTex table的R包，与`xtable`提供的功能相似，不过其具有更简洁的使用方法。除去基本的表格效果控制以外，它的主要功能包括：
+
+* 可以输出为LaTex, Word, HTML和Markdown
+* 易与`knitr`和Rmarkdown进行结合
+* 支持R中标准的subsetting操作，支持`dplyr`函数，支持管道操作
+* 具有快速table主题
+* 使用`huxreg()`函数自动创建回归输出表
+
+建立`hux`对象，支持`dplyr`操作，支持主题……这这这…这不是table界的`ggplot2`吗？（就是似乎函数形式有点缺乏美感…）
+
+在基于`knitr`的Rmarkdown文档中，使用`huxtable`在Rmarkdown中输出表格不需要多余的设置，直接调用该hux对象本身即可：
+
+```{r message=FALSE, warning=FALSE}
+library(huxtable)
+library(dplyr)
+
+data(mtcars)
+car_ht <- as_hux(mtcars) %>%
+  huxtable::add_rownames(colname = "Car") %>%
+  ## dplyr操作
+  slice(1:10) %>%
+  select(Car, mpg, cyl, hp) %>%
+  arrange(hp) %>%
+  filter(cyl > 4) %>%
+  rename(MPG = mpg, Cylinders = cyl, Horsepower = hp) %>%
+  mutate(kml = MPG / 2.82) %>%
+  ## huxtable操作
+  set_number_format(1:7, "kml", 2) %>%
+  set_col_width(c(.35, .15, .15, .15, .2)) %>%
+  set_width(.6) %>%
+  add_colnames() %>%
+  theme_striped(stripe = grDevices::grey(0.9), 
+                header_row = T, header_col = F)
+car_ht
+```
+关于`huxtable`的更多细节请参考[Introduction to Huxtable
+](https://hughjonesd.github.io/huxtable/huxtable.html)
+
+
+### 亲儿子`kable()`和基友`kableExtra`
+
+`kable()`是`knitr`中自带的制表函数，为了支持knitr的多种文档的需求，`kable()`支持latex, html, markdown, pandoc和rst制式的表格。
+
+当然了，作为`knitr`的亲儿子，制表是不需要多余操作的，只需要简单的调用`kable()`就可以了，
+
+```{r}
+library(knitr)
+kable(head(iris))
+```
+
+相当于调用：
+```r
+kable(head(iris), format = 'html')
+```
+
+#### 插曲
+
+我们同样可以在Rmarkdown中指定`kable()`的输出形式。不过，由于我们使用的是HTML文档，参数`format="latex"`的调用会没有结果显示；指定`format='markdown'`或`format='pandoc'`会输出markdown语法和pandoc语法的表格，不过它们会在下面的转义过程中被转义为HTML语法。
+
+```r
+> kable(head(iris), format = "latex")
+
+\begin{tabular}{r|r|r|r|l}
+\hline
+Sepal.Length & Sepal.Width & Petal.Length & Petal.Width & Species\\
+\hline
+5.1 & 3.5 & 1.4 & 0.2 & setosa\\
+\hline
+4.9 & 3.0 & 1.4 & 0.2 & setosa\\
+\hline
+4.7 & 3.2 & 1.3 & 0.2 & setosa\\
+\hline
+4.6 & 3.1 & 1.5 & 0.2 & setosa\\
+\hline
+5.0 & 3.6 & 1.4 & 0.2 & setosa\\
+\hline
+5.4 & 3.9 & 1.7 & 0.4 & setosa\\
+\hline
+\end{tabular}
+```
+```r
+> kable(head(iris), format = "markdown")
+
+| Sepal.Length| Sepal.Width| Petal.Length| Petal.Width|Species |
+|------------:|-----------:|------------:|-----------:|:-------|
+|          5.1|         3.5|          1.4|         0.2|setosa  |
+|          4.9|         3.0|          1.4|         0.2|setosa  |
+|          4.7|         3.2|          1.3|         0.2|setosa  |
+|          4.6|         3.1|          1.5|         0.2|setosa  |
+|          5.0|         3.6|          1.4|         0.2|setosa  |
+|          5.4|         3.9|          1.7|         0.4|setosa  |
+```
+```{r}
+kable(head(iris), format = "latex")
+kable(head(iris), format = "markdown")
+```
+
+### `kableExtra`
+`kable()`因为其原生于`knitr`、调用简单方便而广受欢迎，而`kableExtra`则满足了`kable()`的更多定制性需求。
+
+```{r}
+library(kableExtra)
+dt <- mtcars[1:5, 1:6]
+kable(dt)
+kable(dt, "html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+  
+```{r}
+DT::datatable(dt)
+```
+```{r}
+popover_dt <- data.frame(
+  position = c("top", "bottom", "right", "left"),
+  stringsAsFactors = FALSE
+)
+popover_dt$`Hover over these items` <- cell_spec(
+  paste("Message on", popover_dt$position), # Cell texts
+  popover = spec_popover(
+    content = popover_dt$position,
+    title = NULL,                           # title will add a Title Panel on top
+    position = popover_dt$position
+  ))
+kable(popover_dt, "html", escape = FALSE) %>%
+  kable_styling("striped", full_width = FALSE)
+```
+
